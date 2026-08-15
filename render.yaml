@@ -2,6 +2,7 @@ services:
   - type: web
     name: attendiq-web
     env: docker
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: SERVICE_ROLE
@@ -35,6 +36,7 @@ services:
   - type: worker
     name: attendiq-celery-worker
     env: docker
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: SERVICE_ROLE
