@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - AttendIQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="auth-container card">
+    <h1>Teacher Login</h1>
+    <p class="subtitle">Welcome back to AttendIQ</p>
+
+    <form id="loginForm">
+      <label for="email">Email</label>
+      <input type="email" id="email" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" required>
+
+      <button type="submit" class="btn-primary">Login</button>
+    </form>
+
+    <div id="alertBox" class="alert"></div>
+
+    <div class="link-row">
+      Don't have an account? <a href="/register">Register</a>
+    </div>
+    <div class="link-row">
+      <a href="/">&larr; Back to home</a>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      const result = await apiRequest("/auth/login", {
+        method: "POST",
+        body: { email, password }
+      });
+
+      if (result.ok) {
+        setToken(result.data.access_token);
+        window.location.href = "/dashboard";
+      } else {
+        showAlert("alertBox", result.data.message || "Login failed.");
+      }
+    });
+  </script>
+</body>
+</html>

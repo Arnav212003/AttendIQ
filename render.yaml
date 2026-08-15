@@ -1,0 +1,68 @@
+services:
+  - type: web
+    name: attendiq-web
+    env: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: "flask db upgrade && gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: attendiq-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: attendiq-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: attendiq-redis
+          property: connectionString
+      - key: RATELIMIT_STORAGE_URI
+        fromService:
+          type: redis
+          name: attendiq-redis
+          property: connectionString
+
+  - type: worker
+    name: attendiq-celery-worker
+    env: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: "celery -A celery_worker.celery worker --loglevel=info"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: attendiq-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: attendiq-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: attendiq-redis
+          property: connectionString
+
+  - type: redis
+    name: attendiq-redis
+    plan: free
+    ipAllowList: []  # only accessible from other services in this Render project
+
+databases:
+  - name: attendiq-db
+    plan: free

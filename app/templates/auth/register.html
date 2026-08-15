@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - AttendIQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="auth-container card">
+    <h1>Teacher Register</h1>
+    <p class="subtitle">Create your AttendIQ account</p>
+
+    <form id="registerForm">
+      <label for="teacherName">Teacher Name</label>
+      <input type="text" id="teacherName" required>
+
+      <label for="email">Email</label>
+      <input type="email" id="email" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" minlength="6" required>
+
+      <label for="department">Department</label>
+      <input type="text" id="department">
+
+      <button type="submit" class="btn-primary">Create Account</button>
+    </form>
+
+    <div id="alertBox" class="alert"></div>
+
+    <div class="link-row">
+      Already have an account? <a href="/login">Login</a>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const body = {
+        teacher_name: document.getElementById("teacherName").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+        department: document.getElementById("department").value.trim()
+      };
+
+      const result = await apiRequest("/auth/register", { method: "POST", body });
+
+      if (result.ok) {
+        showAlert("alertBox", "Account created! Redirecting to login...", "success");
+        setTimeout(() => window.location.href = "/login", 1200);
+      } else {
+        showAlert("alertBox", result.data.message || "Registration failed.");
+      }
+    });
+  </script>
+</body>
+</html>

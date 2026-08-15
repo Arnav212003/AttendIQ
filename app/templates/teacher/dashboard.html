@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - AttendIQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🎓 AttendIQ</div>
+    <div>
+      <span id="teacherName" style="color:var(--text-dim); margin-right:16px; font-size:14px;"></span>
+      <button class="btn-secondary btn-small" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card"><div class="stat-value" id="statSubjects">-</div><div class="stat-label">Subjects</div></div>
+      <div class="stat-card"><div class="stat-value" id="statStudents">-</div><div class="stat-label">Students Enrolled</div></div>
+      <div class="stat-card"><div class="stat-value" id="statPresent">-</div><div class="stat-label">Present Today</div></div>
+    </div>
+
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="subjects">Subjects</div>
+      <div class="nav-tab" data-tab="students">Students</div>
+      <div class="nav-tab" data-tab="attendance">Take Attendance</div>
+      <div class="nav-tab" data-tab="ai-attendance">AI Attendance</div>
+      <div class="nav-tab" data-tab="records">View Records</div>
+    </div>
+
+    <!-- SUBJECTS TAB -->
+    <div class="section" id="tab-subjects">
+      <div class="card">
+        <h2>Create Subject</h2>
+        <form id="subjectForm">
+          <label for="subjectName">Subject Name</label>
+          <input type="text" id="subjectName" required>
+          <label for="subjectSection">Section</label>
+          <input type="text" id="subjectSection" required>
+          <button type="submit" class="btn-primary" style="width:auto;">Create</button>
+        </form>
+        <div id="subjectAlert" class="alert"></div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <h2>Your Subjects</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Section</th><th>Code</th><th>Students</th></tr></thead>
+          <tbody id="subjectsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- STUDENTS TAB -->
+    <div class="section hidden" id="tab-students">
+      <div class="card">
+        <h2>Register Student</h2>
+        <form id="studentForm">
+          <label for="studentName">Student Name</label>
+          <input type="text" id="studentName" required>
+          <label for="rollNumber">Roll Number</label>
+          <input type="text" id="rollNumber" required>
+          <label for="classSection">Class / Section</label>
+          <input type="text" id="classSection">
+          <label for="emailPhone">Email / Phone</label>
+          <input type="text" id="emailPhone">
+          <button type="submit" class="btn-primary" style="width:auto;">Save Student</button>
+        </form>
+        <div id="studentAlert" class="alert"></div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <h2>Registered Students</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Roll No.</th><th>Class</th><th>Contact</th></tr></thead>
+          <tbody id="studentsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE TAB -->
+    <div class="section hidden" id="tab-attendance">
+      <div class="card">
+        <h2>Take Attendance</h2>
+        <label for="attendanceSubjectSelect">Select Subject</label>
+        <select id="attendanceSubjectSelect" onchange="loadSubjectStudentsForAttendance()"></select>
+
+        <div id="attendanceStudentsList" style="margin-top:20px;"></div>
+
+        <button class="btn-primary" style="width:auto;" onclick="submitManualAttendance()">Save Attendance</button>
+        <div id="attendanceAlert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- AI ATTENDANCE TAB -->
+    <div class="section hidden" id="tab-ai-attendance">
+      <div class="card" style="margin-bottom:20px;">
+        <h2>Enroll Student Biometrics</h2>
+        <p class="subtitle">Register a student's face or voice sample before using recognition.</p>
+
+        <label for="enrollRollNumber">Student Roll Number</label>
+        <input type="text" id="enrollRollNumber" placeholder="e.g. 101">
+
+        <div class="nav-tabs" style="margin-top:16px; margin-bottom:16px;">
+          <div class="nav-tab active" data-enrolltab="face">Enroll Face</div>
+          <div class="nav-tab" data-enrolltab="voice">Enroll Voice</div>
+        </div>
+
+        <div id="enrolltab-face">
+          <video id="enrollFaceVideo" autoplay playsinline style="width:100%; max-width:400px; border-radius:8px; background:#000;"></video>
+          <canvas id="enrollFaceCanvas" class="hidden"></canvas>
+          <div style="margin-top:12px; display:flex; gap:10px;">
+            <button class="btn-secondary btn-small" onclick="startEnrollCamera()">Start Camera</button>
+            <button class="btn-primary btn-small" style="width:auto; margin-top:0;" onclick="captureAndEnrollFace()">Capture &amp; Enroll</button>
+          </div>
+        </div>
+
+        <div id="enrolltab-voice" class="hidden">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn-secondary btn-small" id="enrollVoiceRecordBtn" onclick="toggleEnrollVoiceRecording()">🎙️ Start Recording</button>
+            <span id="enrollVoiceStatus" style="color:var(--text-dim); font-size:13px;"></span>
+          </div>
+          <audio id="enrollVoicePlayback" class="hidden" controls style="margin-top:12px; width:100%; max-width:400px;"></audio>
+          <button class="btn-primary btn-small" style="width:auto; margin-top:12px;" onclick="enrollVoiceSample()">Save Voice Sample</button>
+        </div>
+
+        <div id="enrollAlert" class="alert" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>AI-Based Attendance</h2>
+        <label for="aiSubjectSelect">Select Subject</label>
+        <select id="aiSubjectSelect" onchange="loadSubjectStudentsForAI()"></select>
+
+        <div class="nav-tabs" style="margin-top:20px; margin-bottom:16px;">
+          <div class="nav-tab active" data-aitab="face">Face Recognition</div>
+          <div class="nav-tab" data-aitab="voice">Voice Recognition</div>
+        </div>
+
+        <!-- FACE SUB-TAB -->
+        <div id="aitab-face">
+          <p class="subtitle">Capture a classroom photo. All enrolled faces in view will be matched.</p>
+          <video id="faceVideo" autoplay playsinline style="width:100%; max-width:480px; border-radius:8px; background:#000;"></video>
+          <canvas id="faceCanvas" class="hidden"></canvas>
+          <div style="margin-top:12px; display:flex; gap:10px;">
+            <button class="btn-secondary btn-small" onclick="startCamera()">Start Camera</button>
+            <button class="btn-primary btn-small" style="width:auto; margin-top:0;" onclick="captureAndRecognizeFace()">Capture &amp; Recognize</button>
+          </div>
+          <img id="faceCapturedPreview" class="hidden" style="max-width:200px; margin-top:12px; border-radius:8px;">
+        </div>
+
+        <!-- VOICE SUB-TAB -->
+        <div id="aitab-voice" class="hidden">
+          <p class="subtitle">Record 3-5 seconds of the student speaking to match against enrolled voice samples.</p>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn-secondary btn-small" id="voiceRecordBtn" onclick="toggleVoiceRecording()">🎙️ Start Recording</button>
+            <span id="voiceStatus" style="color:var(--text-dim); font-size:13px;"></span>
+          </div>
+          <audio id="voicePlayback" class="hidden" controls style="margin-top:12px; width:100%; max-width:480px;"></audio>
+          <button class="btn-primary btn-small" style="width:auto; margin-top:12px;" onclick="recognizeVoice()">Recognize Voice</button>
+        </div>
+
+        <div id="aiAlert" class="alert" style="margin-top:16px;"></div>
+
+        <!-- PREVIEW RESULTS -->
+        <div id="aiPreviewSection" class="hidden" style="margin-top:20px;">
+          <h3>Recognition Preview</h3>
+          <table>
+            <thead><tr><th>Student</th><th>Roll No.</th><th>Status</th><th>Confidence</th></tr></thead>
+            <tbody id="aiPreviewBody"></tbody>
+          </table>
+          <div style="margin-top:16px; display:flex; gap:10px;">
+            <button class="btn-primary btn-small" style="width:auto; margin-top:0;" onclick="confirmAIAttendance()">✅ Confirm &amp; Save</button>
+            <button class="btn-secondary btn-small" onclick="discardAIPreview()">Discard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECORDS TAB -->
+    <div class="section hidden" id="tab-records">
+      <div class="card">
+        <h2>Attendance Records</h2>
+        <label for="recordsSubjectSelect">Filter by Subject</label>
+        <select id="recordsSubjectSelect" onchange="loadAttendanceRecords()"></select>
+
+        <table>
+          <thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Mode</th></tr></thead>
+          <tbody id="recordsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  <script>
+    requireAuth();
+
+    let currentSubjects = [];
+
+    // ---- Tabs ----
+    document.querySelectorAll(".nav-tab[data-tab]").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".nav-tab[data-tab]").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
+        tab.classList.add("active");
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.remove("hidden");
+      });
+    });
+
+    function logout() {
+      clearToken();
+      window.location.href = "/login";
+    }
+
+    // ---- Load teacher info ----
+    async function loadTeacher() {
+      const result = await apiRequest("/teachers/me", { auth: true });
+      if (result && result.ok) {
+        document.getElementById("teacherName").textContent = `👋 ${result.data.teacher.teacher_name}`;
+      }
+    }
+
+    // ---- Subjects ----
+    async function loadSubjects() {
+      const result = await apiRequest("/subjects/", { auth: true });
+      if (!result || !result.ok) return;
+
+      currentSubjects = result.data.subjects;
+      document.getElementById("statSubjects").textContent = currentSubjects.length;
+
+      const tbody = document.getElementById("subjectsTableBody");
+      tbody.innerHTML = "";
+
+      const attendanceSelect = document.getElementById("attendanceSubjectSelect");
+      const recordsSelect = document.getElementById("recordsSubjectSelect");
+      const aiSelect = document.getElementById("aiSubjectSelect");
+      attendanceSelect.innerHTML = "";
+      recordsSelect.innerHTML = "";
+      aiSelect.innerHTML = "";
+
+      let totalStudents = 0;
+
+      for (const subj of currentSubjects) {
+        const studentsResult = await apiRequest(`/subjects/${subj.id}/students`, { auth: true });
+        const count = studentsResult && studentsResult.ok ? studentsResult.data.students.length : 0;
+        totalStudents += count;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${subj.subject_name}</td><td>${subj.section}</td><td><code>${subj.subject_code}</code></td><td>${count}</td>`;
+        tbody.appendChild(row);
+
+        const opt1 = document.createElement("option");
+        opt1.value = subj.id;
+        opt1.textContent = `${subj.subject_name} (${subj.section})`;
+        attendanceSelect.appendChild(opt1);
+
+        const opt2 = opt1.cloneNode(true);
+        recordsSelect.appendChild(opt2);
+
+        const opt3 = opt1.cloneNode(true);
+        aiSelect.appendChild(opt3);
+      }
+
+      document.getElementById("statStudents").textContent = totalStudents;
+
+      if (currentSubjects.length > 0) {
+        loadSubjectStudentsForAttendance();
+        loadAttendanceRecords();
+        loadSubjectStudentsForAI();
+      }
+    }
+
+    document.getElementById("subjectForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {
+        subject_name: document.getElementById("subjectName").value.trim(),
+        section: document.getElementById("subjectSection").value.trim()
+      };
+      const result = await apiRequest("/subjects/", { method: "POST", body, auth: true });
+
+      if (result.ok) {
+        showAlert("subjectAlert", result.data.message, "success");
+        e.target.reset();
+        loadSubjects();
+      } else {
+        showAlert("subjectAlert", result.data.message || "Failed to create subject.");
+      }
+    });
+
+    // ---- Students ----
+    async function loadStudents() {
+      const result = await apiRequest("/students/", { auth: true });
+      if (!result || !result.ok) return;
+
+      const tbody = document.getElementById("studentsTableBody");
+      tbody.innerHTML = "";
+
+      result.data.students.forEach(s => {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${s.name}</td><td>${s.roll_number}</td><td>${s.class_section || "-"}</td><td>${s.email_phone || "-"}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    document.getElementById("studentForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = {
+        name: document.getElementById("studentName").value.trim(),
+        roll_number: document.getElementById("rollNumber").value.trim(),
+        class_section: document.getElementById("classSection").value.trim(),
+        email_phone: document.getElementById("emailPhone").value.trim()
+      };
+      const result = await apiRequest("/students/", { method: "POST", body, auth: true });
+
+      if (result.ok) {
+        const pin = result.data.student.pin_code;
+        showAlert("studentAlert", `${result.data.message} Student PIN: ${pin} (share this with the student - needed to view their own subjects/attendance).`, "success");
+        e.target.reset();
+        loadStudents();
+        loadSubjects();
+      } else {
+        showAlert("studentAlert", result.data.message || "Failed to register student.");
+      }
+    });
+
+    // ---- Attendance: manual marking ----
+    async function loadSubjectStudentsForAttendance() {
+      const subjectId = document.getElementById("attendanceSubjectSelect").value;
+      if (!subjectId) return;
+
+      const result = await apiRequest(`/subjects/${subjectId}/students`, { auth: true });
+      const container = document.getElementById("attendanceStudentsList");
+      container.innerHTML = "";
+
+      if (!result || !result.ok || result.data.students.length === 0) {
+        container.innerHTML = `<p class="subtitle">No students enrolled in this subject yet.</p>`;
+        return;
+      }
+
+      result.data.students.forEach(s => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);";
+        row.innerHTML = `
+          <span>${s.name} <span style="color:var(--text-dim);">| Roll: ${s.roll_number}</span></span>
+          <select data-student-id="${s.student_id}" class="attendance-status" style="width:140px;">
+            <option value="Present">Present</option>
+            <option value="Absent">Absent</option>
+          </select>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    async function submitManualAttendance() {
+      const subjectId = document.getElementById("attendanceSubjectSelect").value;
+      const selects = document.querySelectorAll(".attendance-status");
+
+      const attendanceData = Array.from(selects).map(sel => ({
+        student_id: parseInt(sel.dataset.studentId),
+        status: sel.value
+      }));
+
+      if (attendanceData.length === 0) {
+        showAlert("attendanceAlert", "No students to mark.");
+        return;
+      }
+
+      const result = await apiRequest("/attendance/manual", {
+        method: "POST",
+        auth: true,
+        body: { subject_id: parseInt(subjectId), attendance_data: attendanceData }
+      });
+
+      if (result.ok) {
+        showAlert("attendanceAlert", result.data.message, "success");
+        loadAttendanceRecords();
+      } else {
+        showAlert("attendanceAlert", result.data.message || "Failed to save attendance.");
+      }
+    }
+
+    // ---- Records ----
+    async function loadAttendanceRecords() {
+      const subjectId = document.getElementById("recordsSubjectSelect").value;
+      if (!subjectId) return;
+
+      const result = await apiRequest(`/attendance/?subject_id=${subjectId}`, { auth: true });
+      const tbody = document.getElementById("recordsTableBody");
+      tbody.innerHTML = "";
+
+      if (!result || !result.ok) return;
+
+      let presentToday = 0;
+      const today = new Date().toISOString().split("T")[0];
+
+      // fetch student names for display
+      const studentsResult = await apiRequest(`/subjects/${subjectId}/students`, { auth: true });
+      const studentMap = {};
+      if (studentsResult && studentsResult.ok) {
+        studentsResult.data.students.forEach(s => studentMap[s.student_id] = s.name);
+      }
+
+      result.data.records.forEach(r => {
+        if (r.date === today && r.status === "Present") presentToday++;
+
+        const row = document.createElement("tr");
+        const badgeClass = r.status === "Present" ? "badge-present" : "badge-absent";
+        row.innerHTML = `
+          <td>${r.date}</td>
+          <td>${studentMap[r.student_id] || r.student_id}</td>
+          <td><span class="badge ${badgeClass}">${r.status}</span></td>
+          <td>${r.mode}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById("statPresent").textContent = presentToday;
+    }
+
+    // ---- Enroll sub-tabs ----
+    document.querySelectorAll(".nav-tab[data-enrolltab]").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".nav-tab[data-enrolltab]").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("enrolltab-face").classList.toggle("hidden", tab.dataset.enrolltab !== "face");
+        document.getElementById("enrolltab-voice").classList.toggle("hidden", tab.dataset.enrolltab !== "voice");
+      });
+    });
+
+    // ---- Enroll face ----
+    let enrollCameraStream = null;
+
+    async function startEnrollCamera() {
+      try {
+        enrollCameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("enrollFaceVideo").srcObject = enrollCameraStream;
+      } catch (err) {
+        showAlert("enrollAlert", "Could not access camera: " + err.message);
+      }
+    }
+
+    async function captureAndEnrollFace() {
+      const rollNumber = document.getElementById("enrollRollNumber").value.trim();
+      if (!rollNumber) {
+        showAlert("enrollAlert", "Please enter a roll number.");
+        return;
+      }
+      if (!enrollCameraStream) {
+        showAlert("enrollAlert", "Start the camera first.");
+        return;
+      }
+
+      const video = document.getElementById("enrollFaceVideo");
+      const canvas = document.getElementById("enrollFaceCanvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append("image", blob, "enroll.jpg");
+        formData.append("roll_number", rollNumber);
+
+        const result = await apiRequest("/face/enroll", { method: "POST", auth: true, formData });
+
+        if (result.ok) {
+          showAlert("enrollAlert", result.data.message, "success");
+        } else {
+          showAlert("enrollAlert", result.data.message || "Face enrollment failed.");
+        }
+      }, "image/jpeg");
+    }
+
+    // ---- Enroll voice ----
+    let enrollMediaRecorder = null;
+    let enrollAudioChunks = [];
+    let enrollRecordedBlob = null;
+    let isEnrollRecording = false;
+
+    async function toggleEnrollVoiceRecording() {
+      const btn = document.getElementById("enrollVoiceRecordBtn");
+      const status = document.getElementById("enrollVoiceStatus");
+
+      if (!isEnrollRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          enrollMediaRecorder = new MediaRecorder(stream);
+          enrollAudioChunks = [];
+
+          enrollMediaRecorder.ondataavailable = (e) => enrollAudioChunks.push(e.data);
+          enrollMediaRecorder.onstop = () => {
+            enrollRecordedBlob = new Blob(enrollAudioChunks, { type: "audio/webm" });
+            const playback = document.getElementById("enrollVoicePlayback");
+            playback.src = URL.createObjectURL(enrollRecordedBlob);
+            playback.classList.remove("hidden");
+            stream.getTracks().forEach(t => t.stop());
+          };
+
+          enrollMediaRecorder.start();
+          isEnrollRecording = true;
+          btn.textContent = "⏹️ Stop Recording";
+          status.textContent = "Recording... (speak for 3-5 seconds)";
+        } catch (err) {
+          showAlert("enrollAlert", "Could not access microphone: " + err.message);
+        }
+      } else {
+        enrollMediaRecorder.stop();
+        isEnrollRecording = false;
+        btn.textContent = "🎙️ Start Recording";
+        status.textContent = "Recording saved.";
+      }
+    }
+
+    async function enrollVoiceSample() {
+      const rollNumber = document.getElementById("enrollRollNumber").value.trim();
+      if (!rollNumber) {
+        showAlert("enrollAlert", "Please enter a roll number.");
+        return;
+      }
+      if (!enrollRecordedBlob) {
+        showAlert("enrollAlert", "Please record a voice sample first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("audio", enrollRecordedBlob, "enroll.webm");
+      formData.append("roll_number", rollNumber);
+
+      const result = await apiRequest("/voice/enroll", { method: "POST", auth: true, formData });
+
+      if (result.ok) {
+        showAlert("enrollAlert", result.data.message, "success");
+      } else {
+        showAlert("enrollAlert", result.data.message || "Voice enrollment failed.");
+      }
+    }
+
+    // ---- AI sub-tabs ----
+    document.querySelectorAll(".nav-tab[data-aitab]").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".nav-tab[data-aitab]").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("aitab-face").classList.toggle("hidden", tab.dataset.aitab !== "face");
+        document.getElementById("aitab-voice").classList.toggle("hidden", tab.dataset.aitab !== "voice");
+        document.getElementById("aiPreviewSection").classList.add("hidden");
+      });
+    });
+
+    let currentAISubjectStudents = [];
+    let aiPreviewData = null;
+    let aiSelectedSubjectId = null;
+
+    async function loadSubjectStudentsForAI() {
+      aiSelectedSubjectId = document.getElementById("aiSubjectSelect").value;
+      if (!aiSelectedSubjectId) return;
+      const result = await apiRequest(`/subjects/${aiSelectedSubjectId}/students`, { auth: true });
+      currentAISubjectStudents = (result && result.ok) ? result.data.students : [];
+    }
+
+    // ---- Face capture (getUserMedia) ----
+    let cameraStream = null;
+    let capturedFaceBlob = null;
+
+    async function startCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("faceVideo").srcObject = cameraStream;
+      } catch (err) {
+        showAlert("aiAlert", "Could not access camera: " + err.message);
+      }
+    }
+
+    function captureFrameBlob(video, canvas) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d").drawImage(video, 0, 0);
+      return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg"));
+    }
+
+    async function captureAndRecognizeFace() {
+      if (!aiSelectedSubjectId) {
+        showAlert("aiAlert", "Please select a subject first.");
+        return;
+      }
+      if (!cameraStream) {
+        showAlert("aiAlert", "Start the camera first.");
+        return;
+      }
+
+      const video = document.getElementById("faceVideo");
+      const canvas = document.getElementById("faceCanvas");
+
+      showAlert(
+        "aiAlert",
+        "Everyone in frame: look at the camera and blink naturally once during the next 3 seconds...",
+        "success"
+      );
+
+      // Capture a short burst instead of only two/three snapshots. The backend
+      // tracks every face and requires an Open -> Closed -> Open sequence for
+      // each person, so one student's blink cannot validate the whole group.
+      const livenessFrames = [];
+      const frameCount = 15;
+      for (let i = 0; i < frameCount; i++) {
+        livenessFrames.push(await captureFrameBlob(video, canvas));
+        if (i < frameCount - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
+
+      const firstBlob = livenessFrames[0];
+      capturedFaceBlob = firstBlob;
+      document.getElementById("faceCapturedPreview").src = URL.createObjectURL(firstBlob);
+      document.getElementById("faceCapturedPreview").classList.remove("hidden");
+
+      const formData = new FormData();
+      formData.append("image", firstBlob, "capture.jpg");
+      livenessFrames.forEach((blob, index) => {
+        formData.append("liveness_frames", blob, `liveness_${index}.jpg`);
+      });
+      formData.append("subject_id", aiSelectedSubjectId);
+
+      const result = await apiRequest("/face/recognize", { method: "POST", auth: true, formData });
+
+      if (result.ok) {
+        aiPreviewData = result.data.preview;
+        showAIPreview(aiPreviewData);
+        if (result.data.liveness_warning) {
+          showAlert("aiAlert", "⚠️ " + result.data.liveness_warning, "error");
+        } else {
+          showAlert("aiAlert", result.data.message, "success");
+        }
+      } else {
+        showAlert("aiAlert", result.data.message || "Face recognition failed.");
+      }
+    }
+
+    // ---- Voice recording + active liveness challenge ----
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordedAudioBlob = null;
+    let isRecording = false;
+    let voiceChallengeToken = null;
+
+    async function requestVoiceChallenge() {
+      if (!aiSelectedSubjectId) return null;
+      const result = await apiRequest(`/voice/challenge?subject_id=${aiSelectedSubjectId}`, {
+        method: "GET", auth: true
+      });
+      if (!result.ok) {
+        showAlert("aiAlert", result.data.message || "Could not create voice liveness challenge.");
+        return null;
+      }
+      voiceChallengeToken = result.data.challenge_token;
+      return result.data;
+    }
+
+    async function toggleVoiceRecording() {
+      const btn = document.getElementById("voiceRecordBtn");
+      const status = document.getElementById("voiceStatus");
+
+      if (!isRecording) {
+        if (!aiSelectedSubjectId) {
+          showAlert("aiAlert", "Please select a subject first.");
+          return;
+        }
+
+        const challenge = await requestVoiceChallenge();
+        if (!challenge) return;
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          recordedAudioBlob = null;
+
+          mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+          mediaRecorder.onstop = () => {
+            recordedAudioBlob = new Blob(audioChunks, { type: "audio/webm" });
+            const playback = document.getElementById("voicePlayback");
+            playback.src = URL.createObjectURL(recordedAudioBlob);
+            playback.classList.remove("hidden");
+            stream.getTracks().forEach(t => t.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          btn.textContent = "⏹️ Stop Recording";
+          status.textContent = `Liveness challenge: ${challenge.instruction}`;
+          showAlert("aiAlert", challenge.instruction, "success");
+        } catch (err) {
+          voiceChallengeToken = null;
+          showAlert("aiAlert", "Could not access microphone: " + err.message);
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.textContent = "🎙️ Start Recording";
+        status.textContent = "Recording saved. Click Recognize Voice within 2 minutes.";
+      }
+    }
+
+    async function recognizeVoice() {
+      if (!aiSelectedSubjectId) {
+        showAlert("aiAlert", "Please select a subject first.");
+        return;
+      }
+      if (!recordedAudioBlob || !voiceChallengeToken) {
+        showAlert("aiAlert", "Please record a fresh voice liveness challenge first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("audio", recordedAudioBlob, "recording.webm");
+      formData.append("subject_id", aiSelectedSubjectId);
+      formData.append("challenge_token", voiceChallengeToken);
+
+      const result = await apiRequest("/voice/recognize", { method: "POST", auth: true, formData });
+
+      // Challenge is one attempt only from the UI perspective; every retry
+      // gets a fresh randomized timing pattern.
+      voiceChallengeToken = null;
+      recordedAudioBlob = null;
+
+      if (result.ok) {
+        aiPreviewData = result.data.preview;
+        showAIPreview(aiPreviewData);
+        if (result.data.liveness_warning) {
+          showAlert("aiAlert", "⚠️ " + result.data.liveness_warning, "error");
+        } else {
+          showAlert("aiAlert", result.data.message, "success");
+        }
+      } else {
+        showAlert("aiAlert", result.data.message || "Voice recognition failed.");
+      }
+    }
+
+    // ---- Shared preview/confirm ----
+    function showAIPreview(preview) {
+      const tbody = document.getElementById("aiPreviewBody");
+      tbody.innerHTML = "";
+
+      preview.forEach(p => {
+        const badgeClass = p.status === "Present" ? "badge-present" : "badge-absent";
+        const confidence = p.confidence !== null && p.confidence !== undefined ? p.confidence : "-";
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${p.student_name}</td>
+          <td>${p.roll_number}</td>
+          <td><span class="badge ${badgeClass}">${p.status}</span></td>
+          <td>${confidence}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById("aiPreviewSection").classList.remove("hidden");
+    }
+
+    async function confirmAIAttendance() {
+      if (!aiPreviewData || !aiSelectedSubjectId) return;
+
+      const attendanceData = aiPreviewData.map(p => ({
+        student_id: p.student_id,
+        status: p.status
+      }));
+
+      const activeAITab = document.querySelector(".nav-tab[data-aitab].active").dataset.aitab;
+      const mode = activeAITab === "face" ? "Face Recognition" : "Voice Recognition";
+
+      const result = await apiRequest("/attendance/confirm", {
+        method: "POST",
+        auth: true,
+        body: { subject_id: parseInt(aiSelectedSubjectId), attendance_data: attendanceData, mode }
+      });
+
+      if (result.ok) {
+        showAlert("aiAlert", result.data.message, "success");
+        document.getElementById("aiPreviewSection").classList.add("hidden");
+        aiPreviewData = null;
+        loadAttendanceRecords();
+      } else {
+        showAlert("aiAlert", result.data.message || "Failed to save attendance.");
+      }
+    }
+
+    function discardAIPreview() {
+      aiPreviewData = null;
+      document.getElementById("aiPreviewSection").classList.add("hidden");
+    }
+
+    // ---- Init ----
+    loadTeacher();
+    loadSubjects();
+    loadStudents();
+  </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>AttendIQ - Smart Attendance AI</title>
+
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+  >
+</head>
+
+<body>
+
+  <div class="center-page">
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <h1 class="hero-title">🎓 AttendIQ</h1>
+
+      <p class="subtitle hero-subtitle">
+        AI-powered attendance with face &amp; voice recognition
+      </p>
+    </div>
+
+    <!-- Role Selection -->
+    <div class="role-cards">
+
+      <!-- Teacher Card -->
+      <div
+        class="role-card"
+        onclick="window.location.href='/login'"
+        role="button"
+        tabindex="0"
+        onkeydown="if(event.key === 'Enter') window.location.href='/login'"
+      >
+        <div class="role-icon">👨‍🏫</div>
+
+        <h3>I'm a Teacher</h3>
+
+        <p class="role-description">
+          Manage classes and smart attendance
+        </p>
+      </div>
+
+      <!-- Student Card -->
+      <div
+        class="role-card"
+        onclick="window.location.href='/student-portal'"
+        role="button"
+        tabindex="0"
+        onkeydown="if(event.key === 'Enter') window.location.href='/student-portal'"
+      >
+        <div class="role-icon">👨‍🎓</div>
+
+        <h3>I'm a Student</h3>
+
+        <p class="role-description">
+          View subjects and attendance
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

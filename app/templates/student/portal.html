@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Portal - AttendIQ</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🎓 AttendIQ - Student Portal</div>
+    <a href="/" class="btn-secondary btn-small" style="text-decoration:none;">&larr; Home</a>
+  </div>
+
+  <div class="container">
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="join">Join Subject</div>
+      <div class="nav-tab" data-tab="subjects">My Subjects</div>
+      <div class="nav-tab" data-tab="attendance">My Attendance</div>
+    </div>
+
+    <!-- JOIN SUBJECT -->
+    <div class="section" id="tab-join">
+      <div class="card" style="max-width:420px;">
+        <h2>Join a Subject</h2>
+        <p class="subtitle">Ask your teacher for your 4-digit PIN (shown when they registered you).</p>
+        <form id="joinForm">
+          <label for="joinRoll">Your Roll Number</label>
+          <input type="text" id="joinRoll" required>
+          <label for="joinPin">PIN</label>
+          <input type="text" id="joinPin" maxlength="4" placeholder="4-digit PIN" required>
+          <label for="joinCode">Subject Code</label>
+          <input type="text" id="joinCode" required style="text-transform:uppercase;">
+          <button type="submit" class="btn-primary">Join</button>
+        </form>
+        <div id="joinAlert" class="alert"></div>
+      </div>
+    </div>
+
+    <!-- MY SUBJECTS -->
+    <div class="section hidden" id="tab-subjects">
+      <div class="card" style="max-width:420px;">
+        <h2>My Subjects</h2>
+        <p class="subtitle">Ask your teacher for your 4-digit PIN (shown when they registered you).</p>
+        <label for="subjRoll">Roll Number</label>
+        <input type="text" id="subjRoll">
+        <label for="subjPin">PIN</label>
+        <input type="text" id="subjPin" maxlength="4" placeholder="4-digit PIN">
+        <button class="btn-primary" style="width:auto; margin-top:12px;" onclick="loadMySubjects()">Show Subjects</button>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <table>
+          <thead><tr><th>Subject</th><th>Section</th><th>Code</th></tr></thead>
+          <tbody id="mySubjectsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MY ATTENDANCE -->
+    <div class="section hidden" id="tab-attendance">
+      <div class="card" style="max-width:420px;">
+        <h2>My Attendance</h2>
+        <p class="subtitle">Ask your teacher for your 4-digit PIN (shown when they registered you).</p>
+        <label for="attRoll">Roll Number</label>
+        <input type="text" id="attRoll">
+        <label for="attPin">PIN</label>
+        <input type="text" id="attPin" maxlength="4" placeholder="4-digit PIN">
+        <button class="btn-primary" style="width:auto; margin-top:12px;" onclick="loadMyAttendance()">Show Attendance</button>
+      </div>
+      <div class="card" style="margin-top:20px;">
+        <table>
+          <thead><tr><th>Date</th><th>Subject</th><th>Status</th><th>Mode</th></tr></thead>
+          <tbody id="myAttendanceBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+  <script>
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(s => s.classList.add("hidden"));
+        tab.classList.add("active");
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.remove("hidden");
+      });
+    });
+
+    document.getElementById("joinForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const rollNumber = document.getElementById("joinRoll").value.trim();
+      const pinCode = document.getElementById("joinPin").value.trim();
+      const subjectCode = document.getElementById("joinCode").value.trim().toUpperCase();
+
+      const result = await apiRequest("/students/join-subject", {
+        method: "POST",
+        body: { roll_number: rollNumber, pin_code: pinCode, subject_code: subjectCode }
+      });
+
+      if (result.ok) {
+        showAlert("joinAlert", result.data.message, "success");
+        e.target.reset();
+      } else {
+        showAlert("joinAlert", result.data.message || "Failed to join subject.");
+      }
+    });
+
+    async function loadMySubjects() {
+      const rollNumber = document.getElementById("subjRoll").value.trim();
+      const pinCode = document.getElementById("subjPin").value.trim();
+      if (!rollNumber || !pinCode) return;
+
+      const result = await apiRequest(`/students/${rollNumber}/subjects`, {
+        method: "POST",
+        body: { pin_code: pinCode }
+      });
+      const tbody = document.getElementById("mySubjectsBody");
+      tbody.innerHTML = "";
+
+      if (result && result.ok) {
+        result.data.subjects.forEach(s => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${s.subject_name}</td><td>${s.section}</td><td><code>${s.subject_code}</code></td>`;
+          tbody.appendChild(row);
+        });
+      } else if (result) {
+        alert(result.data.message || "Invalid roll number or PIN.");
+      }
+    }
+
+    async function loadMyAttendance() {
+      const rollNumber = document.getElementById("attRoll").value.trim();
+      const pinCode = document.getElementById("attPin").value.trim();
+      if (!rollNumber || !pinCode) return;
+
+      const result = await apiRequest(`/students/${rollNumber}/attendance`, {
+        method: "POST",
+        body: { pin_code: pinCode }
+      });
+      const tbody = document.getElementById("myAttendanceBody");
+      tbody.innerHTML = "";
+
+      if (result && result.ok) {
+        result.data.attendance.forEach(a => {
+          const badgeClass = a.status === "Present" ? "badge-present" : "badge-absent";
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${a.date}</td><td>${a.subject_name}</td><td><span class="badge ${badgeClass}">${a.status}</span></td><td>${a.mode}</td>`;
+          tbody.appendChild(row);
+        });
+      } else if (result) {
+        alert(result.data.message || "Invalid roll number or PIN.");
+      }
+    }
+  </script>
+</body>
+</html>

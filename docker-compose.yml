@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql+psycopg2://attendance_user:attendance_pass@db:5432/attendance_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - RATELIMIT_STORAGE_URI=redis://redis:6379/1
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - uploads_data:/app/uploads
+
+  worker:
+    build: .
+    command: celery -A celery_worker.celery worker --loglevel=info
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql+psycopg2://attendance_user:attendance_pass@db:5432/attendance_db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - RATELIMIT_STORAGE_URI=redis://redis:6379/1
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - uploads_data:/app/uploads
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=attendance_user
+      - POSTGRES_PASSWORD=attendance_pass
+      - POSTGRES_DB=attendance_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+
+volumes:
+  pg_data:
+  uploads_data:
