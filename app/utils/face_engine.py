@@ -315,15 +315,25 @@ def enroll_student_face(roll_number, camera_file):
     db.session.add(FaceEmbedding(student_id=student.id, image_path=path, lbph_label=student.id))
     db.session.commit()
 
-    # Retraining is offloaded to Celery so the request doesn't block on the full dataset.
-    from app.tasks.face_tasks import retrain_face_model_task
-    retrain_face_model_task.delay()
+    # Retraining runs synchronously here (not via Celery). This project
+    # originally offloaded retraining to a Celery background worker, but
+    # Render's free tier does not support Background Worker services at all
+    # ("service type is not available for this plan") - there is no
+    # workaround short of paying for a worker. Since LBPH training on a
+    # small class-size dataset (dozens of students, not thousands) completes
+    # in well under a second, running it synchronously in the request is a
+    # reasonable tradeoff for a free-tier deployment. If this were scaled to
+    # a much larger dataset, moving retraining back to an async worker (paid
+    # tier, or a different host that supports free workers) would be worth
+    # revisiting.
+    retrain_face_model(current_app.config["FACE_MODEL_PATH"])
 
-    return True, "Student face enrolled successfully. Model retraining queued."
+    return True, "Student face enrolled successfully and model retrained."
 
 
 def retrain_face_model(face_model_path):
-    """Runs inside the Celery worker - retrains LBPH from all stored face images."""
+    """Retrains LBPH from all stored face images. Runs synchronously inside
+    the request (see enroll_student_face for why - no free-tier worker)."""
     embeddings = FaceEmbedding.query.all()
 
     faces, labels = [], []
