@@ -3,8 +3,9 @@ services:
     name: attendiq-web
     env: docker
     dockerfilePath: ./Dockerfile
-    startCommand: "flask db upgrade && gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:app"
     envVars:
+      - key: SERVICE_ROLE
+        value: web
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
@@ -35,8 +36,9 @@ services:
     name: attendiq-celery-worker
     env: docker
     dockerfilePath: ./Dockerfile
-    startCommand: "celery -A celery_worker.celery worker --loglevel=info"
     envVars:
+      - key: SERVICE_ROLE
+        value: worker
       - key: FLASK_ENV
         value: production
       - key: SECRET_KEY
@@ -61,7 +63,7 @@ services:
   - type: redis
     name: attendiq-redis
     plan: free
-    ipAllowList: []  # only accessible from other services in this Render project
+    ipAllowList: []
 
 databases:
   - name: attendiq-db
